@@ -539,7 +539,7 @@ void next_line_prefetcher(struct cache_t *cp, md_addr_t addr)
                  next_line_addr,  /* address of access */
                  NULL,            /* ptr to buffer for input/output */
                  cache_line_size, /* number of bytes to access */
-                 NULL,            /* time of access */
+                 0,               /* time of access */
                  NULL,            /* for return of user data ptr */
                  NULL,            /* for address of replaced block */
                  1);
@@ -570,6 +570,7 @@ void generate_prefetch(struct cache_t *cp, md_addr_t addr)
     break;
   case 1:
     // Next Line Prefetcher
+    printf("here ");
     next_line_prefetcher(cp, addr);
     break;
   case 2:
