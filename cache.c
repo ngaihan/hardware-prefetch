@@ -507,7 +507,25 @@ cache_reg_stats(struct cache_t *cp,	/* cache instance */
 
 /* Next Line Prefetcher */
 void next_line_prefetcher(struct cache_t *cp, md_addr_t addr) {
-	; 
+  int cache_line_size = 64; // obtained from config file
+  int num_sets = 64;
+	md_addr_t next_line_addr = addr + cache_line_size;
+  md_addr_t index = (next_line_addr / cache_line_size) % num_sets;
+  md_addr_t tag = next_line_addr / (cache_line_size * num_sets);
+
+  // Check if not in cache
+  if (cache_probe(cp,		/* cache instance to probe */
+	    next_line_addr) == 0) { /* address of block to probe */
+    cache_access(cp,	/* cache to access */
+	     Read,		/* access type, Read or Write, assuming it is read for now */
+	     next_line_addr,		/* address of access */
+	     NULL,			/* ptr to buffer for input/output */
+	     cache_line_size,		/* number of bytes to access */
+	     NULL,		/* time of access */
+	     NULL,		/* for return of user data ptr */
+	     NULL,	/* for address of replaced block */
+	     1);
+  }
 }
 
 /* Open Ended Prefetcher */
