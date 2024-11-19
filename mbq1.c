@@ -1,9 +1,9 @@
 #include <stdio.h>
 
-#define ARRAY_SIZE 1024
+#define ARRAY_SIZE 1024000
 
 int main(){
-    register int a[ARRAY_SIZE] = {0};
+    int a[ARRAY_SIZE] = {0};
     register int b;
     int i = 0;
 

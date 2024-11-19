@@ -149,6 +149,8 @@
 /* bound sqword_t/dfloat_t to positive int */
 #define BOUND_POS(N) ((int)(MIN(MAX(0, (N)), 2147483647)))
 
+md_addr_t get_PC();
+
 /* unlink BLK from the hash table bucket chain in SET */
 static void
 unlink_htab_ent(struct cache_t *cp,      /* cache to update */
@@ -524,27 +526,31 @@ void cache_reg_stats(struct cache_t *cp,     /* cache instance */
 /* Next Line Prefetcher */
 void next_line_prefetcher(struct cache_t *cp, md_addr_t addr)
 {
-  int cache_line_size = 64; // obtained from config file
-  int num_sets = 64;
-  md_addr_t next_line_addr = addr + cache_line_size;
-  md_addr_t index = (next_line_addr / cache_line_size) % num_sets;
-  md_addr_t tag = next_line_addr / (cache_line_size * num_sets);
-
-  // Check if not in cache
-  if (cache_probe(cp, /* cache instance to probe */
-                  next_line_addr) == 0)
-  {                               /* address of block to probe */
-    cache_access(cp,              /* cache to access */
-                 Read,            /* access type, Read or Write, assuming it is read for now */
-                 next_line_addr,  /* address of access */
-                 NULL,            /* ptr to buffer for input/output */
-                 cache_line_size, /* number of bytes to access */
-                 0,               /* time of access */
-                 NULL,            /* for return of user data ptr */
-                 NULL,            /* for address of replaced block */
-                 1);
-  }
+  /* access a cache, perform a CMD operation on cache CP at address ADDR,
+   places NBYTES of data at *P, returns latency of operation if initiated
+   at NOW, places pointer to block user data in *UDATA, *P is untouched if
+   cache blocks are not allocated (!CP->BALLOC), UDATA should be NULL if no
+   user data is attached to blocks */
+  md_addr_t aligned = addr - addr % 64;
+  cache_access(cp,                  /* cache to access */
+               Read,                /* access type, Read or Write */
+               aligned + cp->bsize, /* address of access */
+               NULL,                /* ptr to buffer for input/output */
+               cp->bsize,           /* number of bytes to access */
+               0,                   /* time of access */
+               NULL,                /* for return of user data ptr */
+               NULL,                /* for address of replaced block */
+               1);
 }
+
+struct RPTEntry {
+  int tag;
+  int prev_addr;
+  int stride;
+  int state; // 0 is no-pred, 1 is transient, 2 is init, 3 is steady
+};
+
+struct RPTEntry** RPT = NULL;
 
 /* Open Ended Prefetcher */
 void open_ended_prefetcher(struct cache_t *cp, md_addr_t addr)
@@ -552,10 +558,18 @@ void open_ended_prefetcher(struct cache_t *cp, md_addr_t addr)
   ;
 }
 
+void init_RPT(int size) {
+  RPT = calloc(size, sizeof(struct RPTEntry*));
+  for (int i = 0; i < size; i++) {
+    RPT[i] = calloc(1, sizeof(struct RPTEntry));
+    RPT[i]->state = 2;
+  }
+}
+
 /* Stride Prefetcher */
 void stride_prefetcher(struct cache_t *cp, md_addr_t addr)
 {
-  ;
+  if (RPT == NULL) init_RPT(cp->prefetch_type);
 }
 
 /* cache x might generate a prefetch after a regular cache access to address addr */
@@ -570,7 +584,6 @@ void generate_prefetch(struct cache_t *cp, md_addr_t addr)
     break;
   case 1:
     // Next Line Prefetcher
-    printf("here ");
     next_line_prefetcher(cp, addr);
     break;
   case 2:
@@ -582,8 +595,6 @@ void generate_prefetch(struct cache_t *cp, md_addr_t addr)
     stride_prefetcher(cp, addr);
   }
 }
-
-md_addr_t get_PC();
 
 /* print cache stats */
 void cache_stats(struct cache_t *cp, /* cache instance */
