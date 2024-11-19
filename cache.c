@@ -531,12 +531,11 @@ void next_line_prefetcher(struct cache_t *cp, md_addr_t addr)
    at NOW, places pointer to block user data in *UDATA, *P is untouched if
    cache blocks are not allocated (!CP->BALLOC), UDATA should be NULL if no
    user data is attached to blocks */
-  md_addr_t aligned = addr - addr % 64;
   cache_access(cp,                  /* cache to access */
                Read,                /* access type, Read or Write */
-               aligned + cp->bsize, /* address of access */
+               addr + cp->bsize, /* address of access */
                NULL,                /* ptr to buffer for input/output */
-               cp->bsize,           /* number of bytes to access */
+               1,           /* number of bytes to access */
                0,                   /* time of access */
                NULL,                /* for return of user data ptr */
                NULL,                /* for address of replaced block */
@@ -562,14 +561,50 @@ void init_RPT(int size) {
   RPT = calloc(size, sizeof(struct RPTEntry*));
   for (int i = 0; i < size; i++) {
     RPT[i] = calloc(1, sizeof(struct RPTEntry));
-    RPT[i]->state = 2;
   }
 }
 
 /* Stride Prefetcher */
 void stride_prefetcher(struct cache_t *cp, md_addr_t addr)
 {
-  if (RPT == NULL) init_RPT(cp->prefetch_type);
+  int RPT_size = cp->prefetch_type;
+  if (RPT == NULL) init_RPT(RPT_size);
+  // calculate tag bits
+  
+  int current_pc_trimmed = (int) (get_PC() >> 2);
+  int current_addr_trimmed = (int) (addr >> 2);
+  int index = (int) ((current_pc_trimmed) % RPT_size);
+  // check if we need to make new entry
+  struct RPTEntry* entry = RPT[index];
+  if (entry->tag != current_pc_trimmed) {
+    // make new entry
+    entry->tag = current_pc_trimmed;
+    entry->prev_addr = current_addr_trimmed;
+    entry->state = 2;
+    entry->stride = 0;
+    return;
+  }
+  // by now entry is for sure our entry
+  int new_stride = current_addr_trimmed - entry->prev_addr;
+  _Bool stride_condition = new_stride == entry->stride;
+  if (entry->state == 0) { // no pred
+    if (stride_condition) {
+      entry->state = 1; // transient
+    } else {
+      entry->stride = new_stride; // update stride
+    }
+  } else {
+    if (stride_condition) {
+      entry->state = 3; // state is steady
+      // prefetch here
+      cache_access(cp, Read, addr + new_stride, NULL, 1, 0, NULL, NULL, 1);
+    } else {
+      if (entry->state != 3) {
+        entry->stride = new_stride;
+      }
+      entry->state--;
+    }
+  }
 }
 
 /* cache x might generate a prefetch after a regular cache access to address addr */
