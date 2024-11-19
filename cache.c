@@ -531,11 +531,12 @@ void next_line_prefetcher(struct cache_t *cp, md_addr_t addr)
    at NOW, places pointer to block user data in *UDATA, *P is untouched if
    cache blocks are not allocated (!CP->BALLOC), UDATA should be NULL if no
    user data is attached to blocks */
+  md_addr_t aligned = addr - addr % cp->bsize;
   cache_access(cp,                  /* cache to access */
                Read,                /* access type, Read or Write */
-               addr + cp->bsize, /* address of access */
+               aligned + cp->bsize, /* address of access */
                NULL,                /* ptr to buffer for input/output */
-               1,           /* number of bytes to access */
+               cp->bsize,           /* number of bytes to access */
                0,                   /* time of access */
                NULL,                /* for return of user data ptr */
                NULL,                /* for address of replaced block */
@@ -597,7 +598,9 @@ void stride_prefetcher(struct cache_t *cp, md_addr_t addr)
     if (stride_condition) {
       entry->state = 3; // state is steady
       // prefetch here
-      cache_access(cp, Read, addr + new_stride, NULL, 1, 0, NULL, NULL, 1);
+      md_addr_t next = ((md_addr_t)(current_addr_trimmed + new_stride)) << 2;
+      md_addr_t aligned = next - next % cp->bsize;
+      cache_access(cp, Read, aligned, NULL, cp->bsize, 0, NULL, NULL, 1);
     } else {
       if (entry->state != 3) {
         entry->stride = new_stride;
@@ -605,6 +608,7 @@ void stride_prefetcher(struct cache_t *cp, md_addr_t addr)
       entry->state--;
     }
   }
+  entry->prev_addr = current_addr_trimmed;
 }
 
 /* cache x might generate a prefetch after a regular cache access to address addr */
