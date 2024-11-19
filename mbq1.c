@@ -3,7 +3,7 @@
 #define ARRAY_SIZE 1024000
 
 int main(){
-    int a[ARRAY_SIZE] = {0};
+    register int a[ARRAY_SIZE] = {0};
     register int b;
     int i = 0;
 

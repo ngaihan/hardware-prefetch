@@ -587,26 +587,27 @@ void stride_prefetcher(struct cache_t *cp, md_addr_t addr)
   }
   // by now entry is for sure our entry
   int new_stride = current_addr_trimmed - entry->prev_addr;
-  _Bool stride_condition = new_stride == entry->stride;
   if (entry->state == 0) { // no pred
-    if (stride_condition) {
+    if (new_stride == entry->stride) {
       entry->state = 1; // transient
     } else {
       entry->stride = new_stride; // update stride
     }
   } else {
-    if (stride_condition) {
+    if (new_stride == entry->stride) {
       entry->state = 3; // state is steady
-      // prefetch here
-      md_addr_t next = ((md_addr_t)(current_addr_trimmed + new_stride)) << 2;
-      md_addr_t aligned = next - next % cp->bsize;
-      cache_access(cp, Read, aligned, NULL, cp->bsize, 0, NULL, NULL, 1);
     } else {
       if (entry->state != 3) {
         entry->stride = new_stride;
       }
       entry->state--;
     }
+  }
+  if (entry->state > 0) {
+      // prefetch here
+      md_addr_t next = ((md_addr_t)(current_addr_trimmed + entry->stride)) << 2;
+      md_addr_t aligned = next - next % cp->bsize;
+      cache_access(cp, Read, aligned, NULL, cp->bsize, 0, NULL, NULL, 1);
   }
   entry->prev_addr = current_addr_trimmed;
 }
