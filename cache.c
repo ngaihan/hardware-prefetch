@@ -531,32 +531,25 @@ void next_line_prefetcher(struct cache_t *cp, md_addr_t addr)
    at NOW, places pointer to block user data in *UDATA, *P is untouched if
    cache blocks are not allocated (!CP->BALLOC), UDATA should be NULL if no
    user data is attached to blocks */
-  md_addr_t aligned = addr - addr % cp->bsize;
-  cache_access(cp,                  /* cache to access */
-               Read,                /* access type, Read or Write */
-               aligned + cp->bsize, /* address of access */
-               NULL,                /* ptr to buffer for input/output */
-               cp->bsize,           /* number of bytes to access */
-               0,                   /* time of access */
-               NULL,                /* for return of user data ptr */
-               NULL,                /* for address of replaced block */
-               1);
+  cache_access(cp, Read, addr + cp->bsize, NULL, 1, 0, NULL, NULL, 1);
 }
 
-struct RPTEntry {
-  int tag;
-  int prev_addr;
-  int stride;
-  int state; // 0 is no-pred, 1 is transient, 2 is init, 3 is steady
-};
 
-struct RPTEntry** RPT = NULL;
 
 /* Open Ended Prefetcher */
 void open_ended_prefetcher(struct cache_t *cp, md_addr_t addr)
 {
   ;
 }
+
+struct RPTEntry {
+  int tag;
+  md_addr_t prev_addr;
+  int stride;
+  int state; // 0 is no-pred, 1 is transient, 2 is init, 3 is steady
+};
+
+struct RPTEntry** RPT = NULL;
 
 void init_RPT(int size) {
   RPT = calloc(size, sizeof(struct RPTEntry*));
@@ -572,21 +565,20 @@ void stride_prefetcher(struct cache_t *cp, md_addr_t addr)
   if (RPT == NULL) init_RPT(RPT_size);
   // calculate tag bits
   
-  int current_pc_trimmed = (int) (get_PC() >> 2);
-  int current_addr_trimmed = (int) (addr >> 2);
+  int current_pc_trimmed = (int) (get_PC() >> 3);
   int index = (int) ((current_pc_trimmed) % RPT_size);
   // check if we need to make new entry
   struct RPTEntry* entry = RPT[index];
   if (entry->tag != current_pc_trimmed) {
     // make new entry
     entry->tag = current_pc_trimmed;
-    entry->prev_addr = current_addr_trimmed;
+    entry->prev_addr = addr;
     entry->state = 2;
     entry->stride = 0;
     return;
   }
   // by now entry is for sure our entry
-  int new_stride = current_addr_trimmed - entry->prev_addr;
+  int new_stride = addr - entry->prev_addr;
   if (entry->state == 0) { // no pred
     if (new_stride == entry->stride) {
       entry->state = 1; // transient
@@ -605,11 +597,9 @@ void stride_prefetcher(struct cache_t *cp, md_addr_t addr)
   }
   if (entry->state > 0) {
       // prefetch here
-      md_addr_t next = ((md_addr_t)(current_addr_trimmed + entry->stride)) << 2;
-      md_addr_t aligned = next - next % cp->bsize;
-      cache_access(cp, Read, aligned, NULL, cp->bsize, 0, NULL, NULL, 1);
+      cache_access(cp, Read, addr + entry->stride, NULL, 1, 0, NULL, NULL, 1);
   }
-  entry->prev_addr = current_addr_trimmed;
+  entry->prev_addr = addr;
 }
 
 /* cache x might generate a prefetch after a regular cache access to address addr */
