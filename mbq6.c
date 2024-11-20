@@ -1,3 +1,4 @@
+/* ECE552 Assignment 4 - BEGIN CODE */
 #define LOOP_SIZE 1000000000
 
 int main()
@@ -26,3 +27,4 @@ int main()
         jump = jumps[jump];
     }
 }
+/* ECE552 Assignment 4 - END CODE */
