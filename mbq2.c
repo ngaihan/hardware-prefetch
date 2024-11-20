@@ -1,3 +1,4 @@
+/* ECE552 Assignment 4 - BEGIN CODE */
 #include <stdio.h>
 
 #define ARRAY_SIZE 10240000
@@ -21,3 +22,4 @@ int main(){
 
     return 0;
 }
+/* ECE552 Assignment 4 - END CODE */

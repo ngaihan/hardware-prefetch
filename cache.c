@@ -523,6 +523,7 @@ void cache_reg_stats(struct cache_t *cp,     /* cache instance */
   stat_reg_counter(sdb, buf, "total number of prefetch misses", &cp->prefetch_misses, 0, NULL);
 }
 
+/* ECE552 Assignment 4 - BEGIN CODE */
 /* Next Line Prefetcher */
 void next_line_prefetcher(struct cache_t *cp, md_addr_t addr)
 {
@@ -685,6 +686,8 @@ void open_ended_prefetcher(struct cache_t *cp, md_addr_t addr)
     tptr = tptr->prev;
   }
 }
+
+/* ECE552 Assignment 4 - END CODE */
 
 /* cache x might generate a prefetch after a regular cache access to address addr */
 void generate_prefetch(struct cache_t *cp, md_addr_t addr)

@@ -1,3 +1,4 @@
+/* ECE552 Assignment 4 - BEGIN CODE */
 #include <stdio.h>
 
 #define ARRAY_SIZE 1024000
@@ -10,14 +11,14 @@ be perfect due to setup.
 */
 
 int main(){
-    register int a[ARRAY_SIZE] = {0};
-    register int b;
+    int a[ARRAY_SIZE];
+    register int b = 1;
     int i = 0;
 
     for (; i<ARRAY_SIZE; i++){
-        b = a[i];
-        a[i] = b + 1;
+        a[i] = b;
     }
 
     return 0;
 }
+/* ECE552 Assignment 4 - END CODE */
