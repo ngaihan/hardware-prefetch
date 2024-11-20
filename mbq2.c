@@ -1,11 +1,7 @@
 #include <stdio.h>
 
-#define ARRAY_SIZE 1024000
-
-struct entry_block{
-    unsigned int a; // 4 bytes
-    char b[124]; // 124 bytes
-};
+#define ARRAY_SIZE 10240000
+#define STRIDE 64
 
 /* 
 This microbenchmark first creates a struct that is 64 bytes. From the config file, each line is 128 bytes and so each
@@ -14,24 +10,13 @@ we will expect to see lackluster performance. However, for the stride prefetcher
 minus the setup misses.
 */
 
-struct entry_block* init_entry_array(){
-    struct entry_block* entry_array = calloc(ARRAY_SIZE, sizeof(struct entry_block));
-
-    int i = 0;
-    for (; i<ARRAY_SIZE; i++) {
-        entry_array[i].a = 0;
-    }
-    return entry_array;
-}
-
 int main(){
-    struct entry_block* entry_array = init_entry_array();
-    register int b;
-    int i = 0;
+    int a[ARRAY_SIZE];
+    register int b = 1;
+    register int i = 0;
 
-    for (; i<ARRAY_SIZE; i++){
-        b = entry_array[i].a;
-        entry_array[i].a = b + 1;
+    for (; i<ARRAY_SIZE; i+=STRIDE){
+        a[i] = b;
     }
 
     return 0;
