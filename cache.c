@@ -611,7 +611,6 @@ struct lln {
 struct DCPTEntry {
   md_addr_t pc;
   md_addr_t prev_addr;
-  md_addr_t prev_prefetch;
   struct lln* delta_head;
   struct lln* delta_tail;
   int delta_size;
