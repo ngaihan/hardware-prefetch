@@ -534,14 +534,6 @@ void next_line_prefetcher(struct cache_t *cp, md_addr_t addr)
   cache_access(cp, Read, addr + cp->bsize, NULL, 1, 0, NULL, NULL, 1);
 }
 
-
-
-/* Open Ended Prefetcher */
-void open_ended_prefetcher(struct cache_t *cp, md_addr_t addr)
-{
-  ;
-}
-
 struct RPTEntry {
   int tag;
   md_addr_t prev_addr;
@@ -600,6 +592,99 @@ void stride_prefetcher(struct cache_t *cp, md_addr_t addr)
       cache_access(cp, Read, addr + entry->stride, NULL, 1, 0, NULL, NULL, 1);
   }
   entry->prev_addr = addr;
+}
+
+// global history
+// hash to make hash
+// xor with pc
+// index into RPT?
+
+#define DCPT_TABLE_SIZE 98
+#define HISTORY_SIZE 19
+
+struct lln {
+  struct lln* next;
+  struct lln* prev;
+  int delta;
+};
+
+struct DCPTEntry {
+  md_addr_t pc;
+  md_addr_t prev_addr;
+  md_addr_t prev_prefetch;
+  struct lln* delta_head;
+  struct lln* delta_tail;
+  int delta_size;
+};
+
+// inserts a delta into the head of entry's delta linked list
+void insert(int delta, struct DCPTEntry* entry) {
+  struct lln* node = malloc(sizeof(struct lln));
+  node->delta = delta;
+  node->next = entry->delta_head;
+  node->prev = NULL;
+
+  // if head exists, make prev equal to new node
+  if (entry->delta_head) {
+    entry->delta_head->prev = node;
+  }
+
+  // if tail doesn't exist, make tail equal to new node
+  if (!entry->delta_tail) {
+    entry->delta_tail = node;
+  }
+  // set node as new head
+  entry->delta_head = node;
+
+  // if we are full, delete the tail
+  if (entry->delta_size >= HISTORY_SIZE) {
+    struct lln* temp_tail = entry->delta_tail;
+    entry->delta_tail = temp_tail->prev;
+    entry->delta_tail->next = NULL;
+    free(temp_tail);
+  }
+  if (entry->delta_size < HISTORY_SIZE) entry->delta_size++;
+}
+
+struct DCPTEntry* DCPT_RPT[DCPT_TABLE_SIZE] = {0};
+
+/* Open Ended Prefetcher */
+void open_ended_prefetcher(struct cache_t *cp, md_addr_t addr)
+{
+  int pc = get_PC() >> 3;
+  int index = pc % DCPT_TABLE_SIZE;
+  // check if we need to make new entry
+  struct DCPTEntry* entry = DCPT_RPT[index];
+  if (!entry || entry->pc != pc) {
+    // make new entry and return
+    DCPT_RPT[index] = calloc(1, sizeof(struct DCPTEntry));
+    DCPT_RPT[index]->prev_addr = addr;
+    DCPT_RPT[index]->pc = pc;
+    return;
+  }
+  // return if same as last prefetch
+  if (addr - entry->prev_addr == 0) return;
+  // insert new delta
+  insert(addr-entry->prev_addr, entry);
+  entry->prev_addr = addr;
+  // get candidates
+  if (entry->delta_size < 3) return;
+  int d1 = entry->delta_head->delta;
+  int d2 = entry->delta_head->next->delta;
+
+  struct lln* tptr = entry->delta_tail;
+  for (int i = 0; i < entry->delta_size - 2; i++) {
+    if (tptr->delta == d2 && tptr->prev->delta == d1) {
+      md_addr_t fetch_addr = addr;
+      struct lln* fetch_tptr = tptr->prev->prev;
+      while (fetch_tptr) {
+        fetch_addr += fetch_tptr->delta;
+        cache_access(cp, Read, fetch_addr, NULL, 1, 0, NULL, NULL, 1);
+        fetch_tptr = fetch_tptr->prev;
+      }
+    }
+    tptr = tptr->prev;
+  }
 }
 
 /* cache x might generate a prefetch after a regular cache access to address addr */
